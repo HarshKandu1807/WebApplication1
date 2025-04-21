@@ -2,7 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using WebApplication1.Migrations;
+//using WebApplication1.Migrations;
 using WebApplication1.Model;
 using WebApplication1.Model.DTO;
 
@@ -47,6 +47,7 @@ namespace WebApplication1.Controllers
         [Route("AddProduct")]
         public async Task<ActionResult> AddProducts(ProductDTO Productdto)
         {
+            
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);

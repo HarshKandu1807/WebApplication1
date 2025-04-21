@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using WebApplication1.Model;
@@ -22,27 +23,65 @@ namespace WebApplication1.Controllers
         {
             var totalcount = userContext.Users.Count();
             var totalpages = (int)Math.Ceiling((double)totalcount / pageSize);
-            var data = await userContext.Users.Skip((page-1)*pageSize).Take(pageSize).Include(u=>u.Orders).ToListAsync();
+            var data = await userContext.Users.Skip((page - 1) * pageSize).Take(pageSize).Include(u => u.Orders).Where(u => !u.Isdeleted).ToListAsync();
             if (data == null)
             {
                 return NotFound();
             }
-            return Ok(data);
+            //var user = new UserDTO {Name=data.Name };
+            var showdata = data.Select(u => new UserDTO { Name = u.Name, ContactNo = u.ContactNo, Orders = u.Orders });
+            return Ok(showdata);
         }
         [HttpGet]
         [Route("GetUser{id}")]
         public async Task<IActionResult> getUserByid(int id)
         {
             var user = await userContext.Users.Include(u => u.Orders).FirstOrDefaultAsync(u => u.ID == id);
-            if(user==null){
+            if(user==null || user.Isdeleted){
                 return NotFound();
             }
             return Ok(user);
         }
 
         [HttpPost]
+        [Route("Login")]
+        public async Task<IActionResult> Login([FromBody] LoginDTO loginDto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var user = await userContext.Users.FirstOrDefaultAsync(u => u.ContactNo == loginDto.ContactNo && !u.Isdeleted);
+            if (user == null)
+            {
+                return Unauthorized("User not found or deleted");
+            }
+
+            var hasher = new PasswordHasher<Users>();
+            var result = hasher.VerifyHashedPassword(user, user.Password, loginDto.Password);
+
+            if (result == PasswordVerificationResult.Failed)
+            {
+                return Unauthorized("Incorrect password");
+            }
+
+            return Ok(new
+            {
+                Message = "Login successful",
+                User = new
+                {
+                    user.ID,
+                    user.Name,
+                    user.ContactNo
+                }
+            });
+        }
+
+
+        [HttpPost]
         [Route("AddUser")]
-        public async Task<IActionResult> AddUsers([FromBody]UserDTO users)
+        public async Task<IActionResult> AddUsers(AddUserDTO users)
         {
             if (!ModelState.IsValid)
             {
@@ -52,8 +91,12 @@ namespace WebApplication1.Controllers
             {
                 Name =users.Name,
                 ContactNo = users.ContactNo,
+                //Password = users.Isdeleted
                 //Isdeleted = users.Isdeleted
             };
+            var hash = new PasswordHasher<Users>();
+            user.Password = hash.HashPassword(user, users.Password);
+            userContext.Users.Add(user);
             await userContext.SaveChangesAsync();
             return Ok(users);
         }
@@ -61,13 +104,19 @@ namespace WebApplication1.Controllers
 
         [HttpPut]
         [Route("UpdateUser{id}")]
-        public async Task<ActionResult<Users>> UpdateUser(int id,Users users)
+        public async Task<ActionResult<Users>> UpdateUser(int id,AddUserDTO users)
         {
-            if (id != users.ID)
+            var exist = await userContext.Users.FindAsync(id);
+
+            if (exist==null || exist.Isdeleted)
             {
                 return BadRequest();
             }
-            userContext.Entry(users).State = EntityState.Modified;
+            exist.Name = users.Name;
+            exist.ContactNo = users.ContactNo;
+            exist.Password = users.Password;
+                //Isdeleted = users.Isdeleted
+            //userContext.Entry(user).State = EntityState.Modified;
             await userContext.SaveChangesAsync();
             return Ok(users);
         }
@@ -78,11 +127,12 @@ namespace WebApplication1.Controllers
         public async Task<ActionResult<Users>> DeleteUser(int id)
         {
             var std = await userContext.Users.FindAsync(id);
-            if (std == null)
+            if (std == null || std.Isdeleted)
             {
                 return NotFound();
             }
-            userContext.Users.Remove(std);
+            //userContext.Users.Remove(std);
+            std.Isdeleted = true;
             await userContext.SaveChangesAsync();
             return Ok();
 

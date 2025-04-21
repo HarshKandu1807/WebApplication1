@@ -8,9 +8,10 @@ namespace WebApplication1.Model
         [Key]
         public int ID { get; set; }
         public string Name { get; set; }
+        public string Password { get; set; }
         public string ContactNo { get; set; }
-        //public bool Isdeleted { get; set; }
-        [JsonIgnore]
+        public bool Isdeleted { get; set; } = false;
+        //[JsonIgnore]
         public ICollection<Order> Orders { get; set; }
     }
 }

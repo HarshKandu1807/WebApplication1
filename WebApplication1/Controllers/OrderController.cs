@@ -44,7 +44,7 @@ namespace WebApplication1.Controllers
             {
                 UserId = orderDto.UserId,
                 ProductId = orderDto.ProductId,
-                CategoryId=orderDto.CategoryId,
+                //CategoryId=orderDto.CategoryId,
                 Quantity = orderDto.Quantity,
                 OrderDate = orderDto.OrderDate
             };
