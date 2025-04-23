@@ -18,10 +18,14 @@ namespace WebApplication1.Controllers
         [HttpGet("GetOrders")]
         public async Task<IActionResult> GetOrders()
         {
-            var orders = await _context.Orders
-                .Include(o => o.User)
-                .Include(o => o.Product)
-                .ToListAsync();
+            //var exists = await _context.Users.Where(u => !u.Isdeleted);
+            //var orders = await _context.Orders
+            //    .Include(o => o.User).Where(u=>!u.User.Isdeleted)
+            //    .Include(o => o.Product)
+            //    .ToListAsync();
+            var orders = await _context.Users.Where(u=>!u.Isdeleted).Include(u=>u.Orders)
+               //.Include(o => o.Product)
+               .ToListAsync();
 
             return Ok(orders);
         }
@@ -32,7 +36,7 @@ namespace WebApplication1.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var userExists = await _context.Users.AnyAsync(u => u.ID == orderDto.UserId);
+            var userExists = await _context.Users.AnyAsync(u => u.ID == orderDto.UserId && !u.Isdeleted);
             var productExists = await _context.Products.AnyAsync(p => p.ProductId == orderDto.ProductId);
 
             if (!userExists)
@@ -59,11 +63,19 @@ namespace WebApplication1.Controllers
         public async Task<IActionResult> GetOrdersByUser(int id)
         {
             var orders = await _context.Orders
-                .Where(o => o.UserId == id)
+                .Where(o => o.UserId == id && !o.User.Isdeleted)
                 .Include(o => o.Product)
                 .ToListAsync();
-
+            if (orders.Count == 0 )
+            {
+                return NotFound("Order Not Found");
+            }
+            else
+            {
             return Ok(orders);
+
+            }
+
         }
 
         [HttpDelete("DeleteOrder/{id}")]

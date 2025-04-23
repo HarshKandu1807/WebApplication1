@@ -1,4 +1,6 @@
-﻿namespace WebApplication1.Model.DTO
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace WebApplication1.Model.DTO
 {
     public class UserDTO
     {
