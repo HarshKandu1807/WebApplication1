@@ -89,7 +89,7 @@ namespace WebApplication1.Controllers
             }
             var user = new Users
             {
-                Name =users.Name,
+                Name = users.Name,
                 ContactNo = users.ContactNo,
                 //Password = users.Isdeleted
                 //Isdeleted = users.Isdeleted
@@ -107,7 +107,6 @@ namespace WebApplication1.Controllers
         public async Task<ActionResult<Users>> UpdateUser(int id,AddUserDTO users)
         {
             var exist = await userContext.Users.FindAsync(id);
-
             if (exist==null || exist.Isdeleted)
             {
                 return BadRequest();

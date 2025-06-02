@@ -59,6 +59,24 @@ namespace WebApplication1.Controllers
             return Ok(order);
         }
 
+        [HttpPut]
+        [Route("UpdateOrder{id}")]
+        public async Task<ActionResult<Order>> UpdateUser(int id, OrderDTO order)
+        {
+            var exist = await _context.Orders.FindAsync(id);
+
+            if (exist == null)
+            {
+                return BadRequest();
+            }
+            exist.UserId = order.UserId;
+            exist.ProductId = order.ProductId;
+            exist.Quantity = order.Quantity;
+            exist.OrderDate = order.OrderDate;
+            await _context.SaveChangesAsync();
+            return Ok(order);
+        }
+
         [HttpGet("GetOrdersByUser/{id}")]
         public async Task<IActionResult> GetOrdersByUser(int id)
         {
