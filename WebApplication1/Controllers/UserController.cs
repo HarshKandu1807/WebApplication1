@@ -129,7 +129,6 @@ namespace WebApplication1.Controllers
             //});
         }
 
-        [Authorize]
         [HttpPost]
         [Route("AddUser")]
         public async Task<IActionResult> AddUsers(AddUserDTO users)
