@@ -4,45 +4,75 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using WebApplication1.Model;
 using WebApplication1.Model.DTO;
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using Microsoft.AspNetCore.Authorization;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace WebApplication1.Controllers
 {
+    
     [Route("api/[controller]")]
     [ApiController]
     public class UserController : ControllerBase
     {
         private readonly UserContext userContext;
-        public UserController(UserContext userContext)
+        private readonly IConfiguration configuration;
+        public UserController(UserContext userContext,IConfiguration configuration)
         {
             this.userContext = userContext;
+            this.configuration = configuration;
         }
 
+        [Authorize]
         [HttpGet]
         [Route("GetUsers")]
-        public async Task<ActionResult<List<Users>>> GetUsers(int page = 1,int pageSize=4)
+        public async Task<ActionResult> GetUsers(int page = 1, int pageSize = 4)
         {
-            var totalcount = userContext.Users.Count();
+            var query = userContext.Users.Where(u => !u.Isdeleted).Include(u => u.Orders);
+            var totalcount = await query.CountAsync();
             var totalpages = (int)Math.Ceiling((double)totalcount / pageSize);
-            var data = await userContext.Users.Skip((page - 1) * pageSize).Take(pageSize).Include(u => u.Orders).Where(u => !u.Isdeleted).ToListAsync();
-            if (data == null)
+            var data = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+
+            if (!data.Any())
+                return NotFound("No users found for this page.");
+
+            var showdata = data.Select(u => new UserDTO
             {
-                return NotFound();
-            }
-            //var user = new UserDTO {Name=data.Name };
-            var showdata = data.Select(u => new UserDTO { Name = u.Name, ContactNo = u.ContactNo, Orders = u.Orders });
-            return Ok(showdata);
+                Name = u.Name,
+                ContactNo = u.ContactNo,
+                Orders = u.Orders
+            });
+
+            return Ok(new
+            {
+                Users = showdata
+            });
         }
+
+        [Authorize]
         [HttpGet]
         [Route("GetUser{id}")]
         public async Task<IActionResult> getUserByid(int id)
         {
-            var user = await userContext.Users.Include(u => u.Orders).FirstOrDefaultAsync(u => u.ID == id);
-            if(user==null || user.Isdeleted){
-                return NotFound();
-            }
-            return Ok(user);
-        }
+            var data = await userContext.Users.Where(u => u.ID == id && !u.Isdeleted).Include(u => u.Orders).FirstOrDefaultAsync();
 
+            if (data == null)
+            {
+                return NotFound($"User with ID {id} not found.");
+            }
+
+            var result = new UserDTO
+            {
+                Name = data.Name,
+                ContactNo = data.ContactNo,
+                Orders = data.Orders
+            };
+            return Ok(result);
+        }
+        
         [HttpPost]
         [Route("Login")]
         public async Task<IActionResult> Login([FromBody] LoginDTO loginDto)
@@ -65,9 +95,20 @@ namespace WebApplication1.Controllers
             {
                 return Unauthorized("Incorrect password");
             }
-
+            var claims = new[]
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, configuration["Jwt:Subject"]),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                new Claim("UserId",user.ID.ToString()),
+                new Claim("Name",user.Name.ToString())
+            };
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Key"]));
+            var signIn = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var token = new JwtSecurityToken(configuration["Jwt:Issuer"], configuration["Jwt:Audience"], claims, expires: DateTime.UtcNow.AddMinutes(30),signingCredentials:signIn);
+            string tokenvalue = new JwtSecurityTokenHandler().WriteToken(token);
             return Ok(new
             {
+                Token=tokenvalue,
                 Message = "Login successful",
                 User = new
                 {
@@ -76,9 +117,19 @@ namespace WebApplication1.Controllers
                     user.ContactNo
                 }
             });
+            //return Ok(new
+            //{
+            //    Message = "Login successful",
+            //    User = new
+            //    {
+            //        user.ID,
+            //        user.Name,
+            //        user.ContactNo
+            //    }
+            //});
         }
 
-
+        [Authorize]
         [HttpPost]
         [Route("AddUser")]
         public async Task<IActionResult> AddUsers(AddUserDTO users)
@@ -100,8 +151,8 @@ namespace WebApplication1.Controllers
             await userContext.SaveChangesAsync();
             return Ok(users);
         }
-        
 
+        [Authorize]
         [HttpPut]
         [Route("UpdateUser{id}")]
         public async Task<ActionResult<Users>> UpdateUser(int id,AddUserDTO users)
@@ -119,8 +170,8 @@ namespace WebApplication1.Controllers
             await userContext.SaveChangesAsync();
             return Ok(users);
         }
-        
 
+        [Authorize]
         [HttpDelete]
         [Route("DeleteUser{id}")]
         public async Task<ActionResult<Users>> DeleteUser(int id)
