@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 //using WebApplication1.Migrations;
 using WebApplication1.Model;
 using WebApplication1.Model.DTO;
+using WebApplication1.Services.Iservices;
 
 namespace WebApplication1.Controllers
 {
@@ -14,35 +15,34 @@ namespace WebApplication1.Controllers
     [ApiController]
     public class ProductController : ControllerBase
     {
-        private readonly UserContext ProductContext;
-        public ProductController(UserContext ProductContext)
+        private readonly IProducts Iproducts;
+        public ProductController(IProducts Iproducts)
         {
-            this.ProductContext = ProductContext;
+            this.Iproducts = Iproducts;
         }
 
         [HttpGet]
         [Route("GetProducts")]
         public async Task<ActionResult> GetProducts(int page = 1,int pageSize=4)
         {
-            var totalcount = ProductContext.Products.Count();
-            var totalpages = (int)Math.Ceiling((double)totalcount / pageSize);
-            var data = await ProductContext.Products.Skip((page-1)*pageSize).Take(pageSize).ToListAsync();
-            if (data == null)
+            var products = await Iproducts.GetAllProducts(page, pageSize);
+            if (products == null)
             {
                 return NotFound();
             }
-            return Ok(data);
+            return Ok(products);
         }
+
         [HttpGet]
         [Route("GetProduct{id}")]
         public async Task<IActionResult> getProductByid(int id)
         {
-            var data = await ProductContext.Products.FindAsync(id);
-            if (data == null)
+            var product = await Iproducts.GetProductById(id);
+            if (product == null)
             {
                 return NotFound();
             }
-            return Ok(data);
+            return Ok(product);
         }
 
         [HttpPost]
@@ -54,17 +54,11 @@ namespace WebApplication1.Controllers
             {
                 return BadRequest(ModelState);
             }
-
-            var product = new WebApplication1.Model.Products
+            var product = await Iproducts.AddProduct(Productdto);
+            if (product == null)
             {
-                Name = Productdto.Name,
-                Price = Productdto.Price,
-                CategoryId = Productdto.CategoryId
-            };
-
-            await ProductContext.Products.AddAsync(product); // FIX: Added await
-            await ProductContext.SaveChangesAsync();
-
+                return BadRequest("Product Category Does Not Exist");
+            }
             return Ok(product);
         }
 
@@ -74,17 +68,11 @@ namespace WebApplication1.Controllers
         [Route("UpdateProduct{id}")]
         public async Task<ActionResult> UpdateProduct(int id, ProductDTO Products)
         {
-            var product = await ProductContext.Products.FindAsync(id);
-
+            var product = await Iproducts.UpdateProduct(id,Products);
             if (product == null)
             {
-                return NotFound("Product not found");
+                return NotFound();
             }
-            product.Name = Products.Name;
-            product.Price = Products.Price;
-            product.CategoryId = Products.CategoryId;
-            ProductContext.Products.Update(product);
-            await ProductContext.SaveChangesAsync();
             return Ok(product);
         }
 
@@ -93,15 +81,12 @@ namespace WebApplication1.Controllers
         [Route("DeleteProduct{id}")]
         public async Task<ActionResult> DeleteProduct(int id)
         {
-            var std = await ProductContext.Products.FindAsync(id);
-            if (std == null)
+            var product = await Iproducts.DeleteProduct(id);
+            if (product == null)
             {
-                return NotFound("Product Not Found");
+                return NotFound("Product is Already Deleted");
             }
-            ProductContext.Products.Remove(std);
-            await ProductContext.SaveChangesAsync();
-            return Ok("Product Deleted");
-
+            return Ok("Product Deleted Successfully");
         }
     }
 }

@@ -4,10 +4,16 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using WebApplication1.Model;
+using WebApplication1.Services;
+using WebApplication1.Services.Iservices;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDbContext<UserContext>(x => x.UseSqlServer(builder.Configuration.GetConnectionString("Dbcon")));
+builder.Services.AddScoped<IUser, UserService>();
+builder.Services.AddScoped<ICategory, CategoryServices>();
+builder.Services.AddScoped<IProducts, ProductServices>();
+builder.Services.AddScoped<IOrders, OrderServices>();
 
 builder.Services.AddAuthentication(options =>
 {

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using WebApplication1.Model;
 using WebApplication1.Model.DTO;
+using WebApplication1.Services.Iservices;
 
 namespace WebApplication1.Controllers
 {
@@ -12,30 +13,30 @@ namespace WebApplication1.Controllers
     [ApiController]
     public class CategoriesController : ControllerBase
     {
-        private readonly UserContext context;
-        public CategoriesController(UserContext userContext)
+        private readonly ICategory Icategory;
+        public CategoriesController(ICategory Icategory)
         {
-            context = userContext;
+            this.Icategory = Icategory;
         }
 
         [HttpGet("GetCategories")]
         public async Task<IActionResult> GetCategories()
         {
-            var categories = await context.Categories.ToListAsync();
-            if (categories == null)
+            var category = await Icategory.GetAllCategory();
+            if (category == null)
             {
-                return NotFound("No Categories Exist");
+                return NotFound("Category Does Not Exist");
             }
-            return Ok(categories);
+            return Ok(category);
         }
 
         [HttpGet("GetCategory/{id}")]
         public async Task<IActionResult> GetCategory(int id)
         {
-            var category = await context.Categories.FindAsync(id);
+            var category = await Icategory.GetCategoryById(id);
             if (category == null)
             {
-                return NotFound("Category Not Found");
+                return NotFound("Category Does Not Exist");
             }
             return Ok(category);
         }
@@ -47,41 +48,37 @@ namespace WebApplication1.Controllers
             {
                 return BadRequest(ModelState);
             }
-            var category = new Category
+            var category = await Icategory.AddCategory(categoryDto);
+            if (category == null)
             {
-                Name = categoryDto.Name
-            };
-
-            await context.Categories.AddAsync(category);
-            await context.SaveChangesAsync();
-
+                return BadRequest("Category Already Exist");
+            }
             return Ok(category);
         }
 
         [HttpPut("UpdateCategory/{id}")]
         public async Task<IActionResult> UpdateCategory(int id, CategoryDTO categoryDto)
         {
-            var category = await context.Categories.FindAsync(id);
+            var category = await Icategory.UpdateCategory(id,categoryDto);
             if (category == null)
             {
-                return NotFound("Category Not Found");
+                return BadRequest();
             }
-            category.Name = categoryDto.Name;
-            await context.SaveChangesAsync();
             return Ok(category);
         }
 
         [HttpDelete("DeleteCategory/{id}")]
         public async Task<IActionResult> DeleteCategory(int id)
         {
-            var category = await context.Categories.FindAsync(id);
-            if (category == null)
+            var category = await Icategory.DeleteCategory(id);
+            if (category == true)
             {
-                return NotFound("Category Not Found");
+                return Ok("Category Deleted Successfully");
             }
-            context.Categories.Remove(category);
-            await context.SaveChangesAsync();
-            return Ok("Category Deleted");
+            else
+            {
+                return NotFound("Category Does Not Exist");
+            }
         }
     }
 }
